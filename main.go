@@ -9,6 +9,7 @@ import (
 	"image/jpeg"
 	"os"
 	"image/draw"
+	"math"
 )
 
 func test0() {
@@ -125,7 +126,9 @@ func test3() {
 	}
 
 	//gs = frameArray(gs, filterBlur)
-	gs = frameArray(gs, filterEdge)
+	//gs = frameArray(gs, filterEdgeHori)
+	//gs = frameArray(gs, filterEdge)
+	gs = frameArray(gs, filterSharpen)
 
 	for i := 0; i < len(img.Pix); i += 4 {
 		pixelAt := int(i / 4)
@@ -238,7 +241,32 @@ func filterBlur(matrix [][]int, i int, j int) int {
 	//}).ToSlice(&r)
 	return int(sum) / len(r)
 }
-func filterEdge(matrix [][]int, i int, j int) int {
+
+func filterSharpen(matrix [][]int, i int, j int) int {
+	at := func(i int, j int, then int) int {
+		cell := getCell(matrix, i, j)
+		if cell < 0 {
+			return -1000
+		}
+		return cell * then
+	}
+	M := -1
+	O := 9
+	frame := [9]int{
+		at(i-1, j-1, M), at(i-1, j, M), at(i-1, j+1, M),
+		at(i, j-1, M), at(i, j, O), at(i, j+1, M),
+		at(i+1, j-1, M), at(i+1, j, M), at(i+1, j+1, M),
+	}
+	r := funk.Filter(frame, func(x int) bool {
+		return x != 1000
+	}).([]int)
+	sum := funk.Reduce(r, func(x int, y int) int {
+		return x + y
+	}, 0)
+	return int(sum)// / len(r)
+}
+
+func filterEdgeHori(matrix [][]int, i int, j int) int {
 	at := func(i int, j int, then int) int {
 		cell := getCell(matrix, i, j)
 		if cell < 0 {
@@ -260,6 +288,7 @@ func filterEdge(matrix [][]int, i int, j int) int {
 		at(i+1, j-1, O), at(i+1, j, O), at(i+1, j+1, O),
 	}
 	r := funk.Filter(frame, func(x int) bool {
+		//fmt.Printf("%d ", x)
 		return x != -1000
 	}).([]int)
 	sum := funk.Reduce(r, func(x int, y int) int {
@@ -269,11 +298,56 @@ func filterEdge(matrix [][]int, i int, j int) int {
 	//From(frame).WhereT(func(x int) bool {
 	//	return x >= 0
 	//}).ToSlice(&r)
-	if int(sum)/len(r) > 128 {
+	if math.Abs(sum/float64(len(r))) > 4 {
 		return 255
 	} else {
 		return 0
 	}
+}
+
+func filterEdgeVerti(matrix [][]int, i int, j int) int {
+	at := func(i int, j int, then int) int {
+		cell := getCell(matrix, i, j)
+		if cell < 0 {
+			return -1000
+		}
+		return cell * then
+	}
+	M := -1
+	Z := 0
+	O := 1
+	//frame := [9]int{
+	//	at(i-1, j-1, M), at(i-1, j, Z), at(i-1, j+1, O),
+	//	at(i, j-1, M), at(i, j, Z), at(i, j+1, O),
+	//	at(i+1, j-1, M), at(i+1, j, Z), at(i+1, j+1, O),
+	//}
+	frame := [9]int{
+		at(i-1, j-1, M), at(i-1, j, Z), at(i-1, j+1, O),
+		at(i, j-1, M), at(i, j, Z), at(i, j+1, O),
+		at(i+1, j-1, M), at(i+1, j, Z), at(i+1, j+1, O),
+	}
+	r := funk.Filter(frame, func(x int) bool {
+		//fmt.Printf("%d ", x)
+		return x != -1000
+	}).([]int)
+	sum := funk.Reduce(r, func(x int, y int) int {
+		return x + y
+	}, 0)
+	//var rr []int
+	//From(frame).WhereT(func(x int) bool {
+	//	return x >= 0
+	//}).ToSlice(&r)
+	if math.Abs(sum/float64(len(r))) > 4 {
+		return 255
+	} else {
+		return 0
+	}
+}
+
+func filterEdge(matrix [][]int, i int, j int) int {
+	//sum := filterEdgeVerti(matrix, i, j)
+	sum := filterEdgeHori(matrix, i, j) | filterEdgeVerti(matrix, i, j)
+	return sum
 }
 
 func main() {
